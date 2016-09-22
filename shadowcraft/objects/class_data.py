@@ -1083,12 +1083,6 @@ class Util(object):
                 return i
         raise exceptions.InvalidInputException(_('{game_class} is not a supported game class').format(game_class=game_class))
 
-    def get_agi_per_crit(self, game_class, level):
-        return self.AGI_PER_CRIT_VALUES[self.get_class_number(game_class)][level - 1]
-
-    def get_agi_intercept(self, game_class):
-        return self.AGI_CRIT_INTERCEPT_VALUES[self.get_class_number(game_class)]
-
     def get_random_prop_point(self, item_level):
         if item_level < 1:
             raise exceptions.InvalidInputException(_('item_level={item_level} need to be >= 1').format(item_level=item_level))

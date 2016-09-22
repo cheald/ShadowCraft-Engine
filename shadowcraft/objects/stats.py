@@ -98,7 +98,7 @@ class Weapon(object):
             self._normalization_speed = 2.4
 
     def set_enchant(self, enchant):
-        if enchant == None:
+        if enchant is None:
             self.del_enchant()
         else:
             if self.is_melee():
@@ -126,12 +126,12 @@ class Weapon(object):
         return not self.type in frozenset(['gun', 'bow', 'crossbow', 'thrown'])
 
     def damage(self, ap=0, weapon_speed=None):
-        if weapon_speed == None:
+        if weapon_speed is None:
             weapon_speed = self.speed
         return weapon_speed * (self.weapon_dps + ap / 3.5) #used to be 14
 
     def normalized_damage(self, ap=0, weapon_speed=None):
-        if weapon_speed == None:
+        if weapon_speed is None:
             weapon_speed = self.speed
         return weapon_speed * self.weapon_dps + self._normalization_speed * ap / 3.5 #used to be 14
 
@@ -161,7 +161,7 @@ class GearBuffs(object):
     def __init__(self, *args):
         for arg in args:
             if not isinstance(arg, (list,tuple)):
-                arg = (arg,0)
+                arg = (arg, 0)
             if arg[0] in self.allowed_buffs:
                 setattr(self, arg[0], True)
 
@@ -193,9 +193,9 @@ class GearBuffs(object):
                      ('combat', 'ss', 'sinister_strike'): 0.15,
                      ('subtlety', 'bs', 'backstab'): 0.1
             }
-            for spells in bonus.keys():
+            for spells, value in bonus.iteritems():
                 if spell in spells:
-                    return 1 + bonus[spells]
+                    return 1 + value
         return 1
 
     def rogue_t14_4pc_extra_time(self, is_combat=False):

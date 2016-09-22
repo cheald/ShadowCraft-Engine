@@ -2,8 +2,6 @@ from shadowcraft.core import exceptions
 from shadowcraft.objects import proc_data
 from shadowcraft.objects import class_data
 
-import sys, traceback
-
 class InvalidProcException(exceptions.InvalidInputException):
     pass
 
@@ -49,71 +47,41 @@ class Proc(object):
         #the other option is to always handle it deeper into the calc module, but that is coupling object responsibilities and not ideal.
         if self.scaling:
             if self.source in ('trinket',):
-                if hasattr(self.value,'__iter__'): #handle object value
+                if hasattr(self.value, '__iter__'): #handle object value
                     for e in self.value:
                         self.value[e] = round(self.scaling * tools.get_random_prop_point(self.item_level))
                 else: #handle raw value
                     self.value = round(self.scaling * tools.get_random_prop_point(self.item_level))
 
     def procs_off_auto_attacks(self):
-        if self.trigger in ('all_attacks', 'auto_attacks', 'all_spells_and_attacks', 'all_melee_attacks'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_attacks', 'auto_attacks', 'all_spells_and_attacks', 'all_melee_attacks')
 
     def procs_off_strikes(self):
-        if self.trigger in ('all_attacks', 'strikes', 'all_spells_and_attacks', 'all_melee_attacks'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_attacks', 'strikes', 'all_spells_and_attacks', 'all_melee_attacks')
 
     def procs_off_harmful_spells(self):
-        if self.trigger in ('all_spells', 'damaging_spells', 'all_spells_and_attacks'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_spells', 'damaging_spells', 'all_spells_and_attacks')
 
     def procs_off_heals(self):
-        if self.trigger in ('all_spells', 'healing_spells', 'all_spells_and_attacks'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_spells', 'healing_spells', 'all_spells_and_attacks')
 
     def procs_off_periodic_spell_damage(self):
-        if self.trigger in ('all_periodic_damage', 'periodic_spell_damage'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_periodic_damage', 'periodic_spell_damage')
 
     def procs_off_periodic_heals(self):
-        if self.trigger == 'hots':
-            return True
-        else:
-            return False
+        return self.trigger == 'hots'
 
     def procs_off_bleeds(self):
-        if self.trigger in ('all_periodic_damage', 'bleeds'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_periodic_damage', 'bleeds')
 
     def procs_off_crit_only(self):
-        if self.on_crit:
-            return True
-        else:
-            return False
+        return self.on_crit
 
     def procs_off_apply_debuff(self):
-        if self.trigger in ('all_spells_and_attacks', 'all_attacks', 'all_melee_attacks'):
-            return True
-        else:
-            return False
+        return self.trigger in ('all_spells_and_attacks', 'all_attacks', 'all_melee_attacks')
 
     def procs_off_procced_strikes(self):
-        if self.on_procced_strikes:
-            return True
-        else:
-            return False
+        return self.on_procced_strikes
 
     def get_rppm_proc_rate(self, haste=1.):
         if self.is_real_ppm():
@@ -132,30 +100,21 @@ class Proc(object):
             return self.proc_rate
 
     def is_ppm(self):
-        if self.type == 'ppm':
-            return True
-        else:
-            return False
-        # probably should configure this somehow, but type check is probably enough
-        raise InvalidProcException(_('Invalid data for proc {proc}').format(proc=self.proc_name))
+        return self.type == 'ppm'
 
     def is_rppm(self):
         return self.is_real_ppm()
+
     def is_real_ppm(self):
-        if self.type == 'rppm':
-            return True
-        else:
-            return False
-        # probably should configure this somehow, but type check is probably enough
-        raise InvalidProcException(_('Invalid data for proc {proc}').format(proc=self.proc_name))
+        return self.type == 'rppm'
 
 class ProcsList(object):
     allowed_procs = proc_data.allowed_procs
 
     def __init__(self, *args):
         for arg in args:
-            if not isinstance(arg, (list,tuple)):
-                arg = (arg,100)
+            if not isinstance(arg, (list, tuple)):
+                arg = (arg, 100)
             if arg[0] in self.allowed_procs:
                 proc_data = self.allowed_procs[arg[0]]
                 proc_data['item_level'] = arg[1]

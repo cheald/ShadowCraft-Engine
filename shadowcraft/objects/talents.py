@@ -68,7 +68,6 @@ class Talents(object):
     def get_tier_for_talent(self, name):
         if name not in self.allowed_talents:
             return None
-        tier = 0
         for i in xrange(self.max_rows):
             if name in self.class_talents[i]:
                 return i

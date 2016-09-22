@@ -3,6 +3,7 @@ class InvalidInputException(Exception):
     # either use or subclass this.
 
     def __init__(self, error_msg):
+        super(InvalidInputException, self)
         self.error_msg = error_msg
 
     def __str__(self):

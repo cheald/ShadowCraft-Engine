@@ -5,7 +5,7 @@ class InvalidTraitException(exceptions.InvalidInputException):
     pass
 
 class Artifact(object):
-    def __init__(self, class_spec, game_class, trait_string='', trait_dict= {}):
+    def __init__(self, class_spec, game_class, trait_string='', trait_dict=None):
         self.allowed_traits = artifact_data.traits[(game_class, class_spec)]
         self.single_rank_traits = artifact_data.single_rank[(game_class, class_spec)]
 
@@ -15,7 +15,7 @@ class Artifact(object):
         else:
             self.traits = {}
             for trait in self.allowed_traits:
-                if trait in trait_dict:
+                if trait_dict is not None and trait in trait_dict:
                     self.traits[trait] = trait_dict[trait]
                 else:
                     self.traits[trait] = 0

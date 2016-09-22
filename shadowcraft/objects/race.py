@@ -31,8 +31,8 @@ class Race(object):
 
     #Arguments are ap, spellpower:fire, and int
     #This is the formula according to wowhead, with a probable typo corrected
-    def calculate_rocket_barrage(self, ap, spfi, int):
-        return 1 + 0.25 * ap + .429 * spfi + self.level * 2 + int * 0.50193
+    def calculate_rocket_barrage(self, ap, spfi, intellect):
+        return 1 + 0.25 * ap + .429 * spfi + self.level * 2 + intellect * 0.50193
 
     racial_stat_offset = {
                        #str,agi,sta,int,spi
@@ -116,7 +116,7 @@ class Race(object):
 
     def set_racials(self):
         # Set all racials, so we don't invoke __getattr__ all the time
-        for race, racials in Race.racials_by_race.items():
+        for _, racials in Race.racials_by_race.items():
             for racial in racials:
                 setattr(self, racial, False)
         for racial in Race.racials_by_race[self.race_name]:
@@ -139,7 +139,7 @@ class Race(object):
             self.activated_racial_data["blood_fury_spell"]["value"] = self.blood_fury_bonuses[self.level]["sp"]
             # this merges racial stats with class stats (ie, racial_stat_offset and rogue_base_stats)
             self.stats = map(sum, zip(self.stats, Race.racial_stat_offset[self.race_name]))
-        except KeyError as e:
+        except KeyError:
             raise InvalidRaceException(_('Unsupported class/level combination {character_class}/{level}').format(character_class=self.character_class, level=self.level))
 
     def __getattr__(self, name):
@@ -150,18 +150,18 @@ class Race(object):
             object.__getattribute__(self, name)
 
     def get_stats_from_race(self, level, secondaries=False):
-        str = Race.rogue_base_stats[level][0] + Race.racial_stat_offset[self.race_name][0]
+        strength = Race.rogue_base_stats[level][0] + Race.racial_stat_offset[self.race_name][0]
         agi = Race.rogue_base_stats[level][1] + Race.racial_stat_offset[self.race_name][1]
         sta = Race.rogue_base_stats[level][2] + Race.racial_stat_offset[self.race_name][2]
-        int = Race.rogue_base_stats[level][3] + Race.racial_stat_offset[self.race_name][3]
+        intellect = Race.rogue_base_stats[level][3] + Race.racial_stat_offset[self.race_name][3]
         spi = Race.rogue_base_stats[level][4] + Race.racial_stat_offset[self.race_name][4]
         if secondaries:
-            return {'agi':agi, 'str':str, 'sta':sta, 'int':int, 'spi':spi,
-                    'readiness':0, 'multistrike':0, 'versatility':0, 'haste':0, 'crit':0, 'mastery':0}
-        return {'agi':agi, 'str':str, 'sta':sta, 'int':int, 'spi':spi}
+            return {'agi': agi, 'str': strength, 'sta': sta, 'int': intellect, 'spi': spi,
+                    'readiness': 0, 'multistrike': 0, 'versatility': 0, 'haste': 0, 'crit': 0, 'mastery': 0}
+        return {'agi': agi, 'str': strength, 'sta': sta, 'int': intellect, 'spi': spi}
 
     def get_racial_crit(self, is_day=False):
-        crit_bonus = 0
+        crit_bonus = 0.
         if self.viciousness:
             crit_bonus = .01
         if self.touch_of_elune and is_day:
@@ -172,7 +172,7 @@ class Race(object):
         return crit_bonus
 
     def get_racial_haste(self, is_day=False):
-        haste_bonus = 0
+        haste_bonus = 0.
         if self.time_is_money:
             haste_bonus = .01
         if self.touch_of_elune and not is_day:

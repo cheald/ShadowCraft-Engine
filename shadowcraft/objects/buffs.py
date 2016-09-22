@@ -74,7 +74,7 @@ class Buffs(object):
         'mortal_wounds_debuff',
     ])
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args):
         for buff in args:
             if buff not in self.allowed_buffs:
                 raise InvalidBuffException(_('Invalid buff {buff}').format(buff=buff))
@@ -139,7 +139,7 @@ class Buffs(object):
         return bonus_versatility
 
     def felmouth_food(self):
-        if self.food_felmouth_frenzy :
+        if self.food_felmouth_frenzy:
             return True
         return False
 

@@ -354,11 +354,14 @@ class RogueDamageCalculator(DamageCalculator):
         return 1 * self.get_weapon_damage('mh', ap)
 
     def mh_kingsbane_damage(self, ap):
-       return 3 * self.get_weapon_damage('mh', ap) * (1 + (0.4 * self.talents.master_poisoner))
+        return 3 * self.get_weapon_damage('mh', ap) * (1 + (0.4 * self.talents.master_poisoner))
+
     def oh_kingsbane_damage(self, ap):
         return 3 * self.oh_penalty() * self.get_weapon_damage('oh', ap) * (1 + (0.4 * self.talents.master_poisoner))
+
     def kingsbane_tick_damage(self, ap):
         return 0.45 * ap * (1 + (0.4 * self.talents.master_poisoner))
+
     def mh_mutilate_damage(self, ap):
         return 3.6 * self.get_weapon_damage('mh', ap) * (1 + (0.15 * self.traits.assassins_blades))
 
@@ -436,6 +439,7 @@ class RogueDamageCalculator(DamageCalculator):
     #Nightblade doesn't actually scale with cps but passing cps for simplicity
     def nightblade_tick_damage(self, ap, cp):
         return 1.2 * ap * (1 + (0.05 * self.traits.demons_kiss))
+
     def finality_nightblade_tick_damage(self, ap, cp):
         return 1.4 * ap * (1 + (0.05 * self.traits.demons_kiss))
 

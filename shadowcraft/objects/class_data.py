@@ -1078,8 +1078,8 @@ class Util(object):
     ]
 
     def get_class_number(self, game_class):
-        for i in self.GAME_CLASS_NUMBER.keys():
-            if self.GAME_CLASS_NUMBER[i] == game_class:
+        for i, name in self.GAME_CLASS_NUMBER.iteritems():
+            if name == game_class:
                 return i
         raise exceptions.InvalidInputException(_('{game_class} is not a supported game class').format(game_class=game_class))
 

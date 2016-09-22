@@ -173,7 +173,7 @@ class DamageCalculator(object):
         if not ep_stats:
             ep_stats = self.default_ep_stats
 
-        if baseline_dps == None:
+        if baseline_dps is None:
             baseline_dps = self.get_dps()
 
         if normalize_ep_stat == 'dps':
@@ -182,7 +182,7 @@ class DamageCalculator(object):
             normalize_dps = self.ep_helper(normalize_ep_stat)
             normalize_dps_difference = normalize_dps - baseline_dps
         if normalize_dps_difference == 0:
-            normalize_dps_difference = 1
+            normalize_dps_difference = 1.
 
         ep_values = {}
         for stat in ep_stats:
@@ -332,13 +332,11 @@ class DamageCalculator(object):
 
     def get_dw_weapon_modifier(self, setups, format=True):
         # Override this in your modeler to pass default dw setups to test.
-        modifiers = self.get_weapon_type_modifier_helper(setups)
-        pass
+        return self.get_weapon_type_modifier_helper(setups)
 
     def get_2h_weapon_modifier(self, setups, format=True):
         # Override this in your modeler to pass default 2h setups to test.
-        modifiers = self.get_weapon_type_modifier_helper(setups)
-        pass
+        return self.get_weapon_type_modifier_helper(setups)
 
     def get_other_ep(self, list, normalize_ep_stat=None):
         if not normalize_ep_stat:
@@ -542,7 +540,7 @@ class DamageCalculator(object):
                             tier_ranking[talent] = abs(new_dps - baseline_dps)
                         else:
                             tier_ranking[talent] = 'not implemented' #unique error: no dps delta for this talent
-                    except:
+                    except Exception:
                         tier_ranking[talent] = 'implementation error' #unique error: error attempting to calc dps with this talent
                     setattr(self.talents, talent, not getattr(self.talents, talent))
             talents_ranking[level] = tier_ranking #place each tier into the talent tree
@@ -570,7 +568,7 @@ class DamageCalculator(object):
                 new_dps = self.get_dps()
                 if new_dps != baseline_dps:
                     trait_ranking[trait] = abs(new_dps-baseline_dps)
-            except:
+            except Exception:
                 trait_ranking[trait] = _('not_implemented')
             setattr(self.traits, trait, base_trait_rank)
         return trait_ranking
@@ -597,7 +595,7 @@ class DamageCalculator(object):
         # damage value.
         return damage * self.armor_mitigation_multiplier(armor)
 
-    def melee_hit_chance(self, base_miss_chance, dodgeable, parryable, weapon_type, blockable=False):
+    def melee_hit_chance(self, base_miss_chance, dodgeable, parryable, blockable=False):
         miss_chance = base_miss_chance
 
         if dodgeable:
@@ -617,46 +615,42 @@ class DamageCalculator(object):
 
         return (1 - (miss_chance + dodge_chance + parry_chance)) * (1 - block_chance)
 
-    def melee_spells_hit_chance(self, bonus_hit=0):
-        hit_chance = self.melee_hit_chance(self.base_one_hand_miss_rate, dodgeable=False, parryable=False, weapon_type=None)
-        return hit_chance
-
     def one_hand_melee_hit_chance(self, dodgeable=False, parryable=False, weapon=None, blockable=False):
         # Most attacks by DPS aren't parryable due to positional negation. But
         # if you ever want to attacking from the front, you can just set that
         # to True.
-        if weapon == None:
+        if weapon is None:
             weapon = self.stats.mh
-        hit_chance = self.melee_hit_chance(self.base_one_hand_miss_rate, dodgeable, parryable, weapon.type, blockable)
+        hit_chance = self.melee_hit_chance(self.base_one_hand_miss_rate, dodgeable, parryable, blockable)
         return hit_chance
 
-    def off_hand_melee_hit_chance(self, dodgeable=False, parryable=False, weapon=None, bonus_hit=0):
+    def off_hand_melee_hit_chance(self, dodgeable=False, parryable=False, weapon=None):
         # Most attacks by DPS aren't parryable due to positional negation. But
         # if you ever want to attacking from the front, you can just set that
         # to True.
-        if weapon == None:
+        if weapon is None:
             weapon = self.stats.oh
-        hit_chance = self.melee_hit_chance(self.base_one_hand_miss_rate, dodgeable, parryable, weapon.type)
+        hit_chance = self.melee_hit_chance(self.base_one_hand_miss_rate, dodgeable, parryable)
         return hit_chance
 
     def dual_wield_mh_hit_chance(self, dodgeable=False, parryable=False, dw_miss=None):
         # Most attacks by DPS aren't parryable due to positional negation. But
         # if you ever want to attacking from the front, you can just set that
         # to True.
-        hit_chance = self.dual_wield_hit_chance(dodgeable, parryable, self.stats.mh.type, dw_miss=dw_miss)
+        hit_chance = self.dual_wield_hit_chance(dodgeable, parryable, dw_miss=dw_miss)
         return hit_chance
 
     def dual_wield_oh_hit_chance(self, dodgeable=False, parryable=False, dw_miss=None):
         # Most attacks by DPS aren't parryable due to positional negation. But
         # if you ever want to attacking from the front, you can just set that
         # to True.
-        hit_chance = self.dual_wield_hit_chance(dodgeable, parryable, self.stats.oh.type, dw_miss=dw_miss)
+        hit_chance = self.dual_wield_hit_chance(dodgeable, parryable, dw_miss=dw_miss)
         return hit_chance
 
-    def dual_wield_hit_chance(self, dodgeable, parryable, weapon_type, dw_miss=None):
+    def dual_wield_hit_chance(self, dodgeable, parryable, dw_miss=None):
         if not dw_miss:
             dw_miss = self.base_dw_miss_rate
-        hit_chance = self.melee_hit_chance(dw_miss, dodgeable, parryable, weapon_type)
+        hit_chance = self.melee_hit_chance(dw_miss, dodgeable, parryable)
         return hit_chance
 
     def buff_melee_crit(self):

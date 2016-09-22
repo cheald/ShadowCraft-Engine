@@ -4,14 +4,12 @@ import __builtin__
 import math
 from operator import add
 from copy import copy
-
-__builtin__._ = gettext.gettext
-
 from shadowcraft.calcs.rogue import RogueDamageCalculator
 from shadowcraft.core import exceptions
 from shadowcraft.objects import procs
 from shadowcraft.objects import proc_data
 
+__builtin__._ = gettext.gettext
 
 class InputNotModeledException(exceptions.InvalidInputException):
     # I'll return these when inputs don't make sense to the model.
@@ -225,24 +223,24 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         self.settings.is_day = self.get_adv_param('is_day', self.settings.is_day, ignore_bounds=True)
         self.get_version_number = self.get_adv_param('print_version', False, ignore_bounds=True)
 
-    def get_proc_damage_contribution(self, proc, proc_count, current_stats, average_ap, damage_breakdown):
+    def get_proc_damage_contribution(self, proc, proc_count, current_stats, average_ap):
         crit_multiplier = self.crit_damage_modifiers()
         crit_rate = self.crit_rate(crit=current_stats['crit'])
 
         #TODO Re-add multipliers here
         multiplier = 1
-        '''if proc.stat == 'spell_damage':
-            multiplier = self.get_modifiers(current_stats, damage_type='spell')
-        elif proc.stat == 'physical_damage':
-            multiplier = self.get_modifiers(current_stats, damage_type='physical')
-        elif proc.stat == 'physical_dot':
-            multiplier = self.get_modifiers(current_stats, damage_type='bleed')
-        elif proc.stat == 'bleed_damage':
-            multiplier = self.get_modifiers(current_stats, damage_type='bleed')
-        else:
-            return 0'''
+        # if proc.stat == 'spell_damage':
+        #     multiplier = self.get_modifiers(current_stats, damage_type='spell')
+        # elif proc.stat == 'physical_damage':
+        #     multiplier = self.get_modifiers(current_stats, damage_type='physical')
+        # elif proc.stat == 'physical_dot':
+        #     multiplier = self.get_modifiers(current_stats, damage_type='bleed')
+        # elif proc.stat == 'bleed_damage':
+        #     multiplier = self.get_modifiers(current_stats, damage_type='bleed')
+        # else:
+        #     return 0
 
-        if proc.can_crit == False:
+        if proc.can_crit is False:
             crit_rate = 0
 
         proc_value = proc.value
@@ -418,9 +416,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         #                       : delay/swing_timer
         #                       : OH is the same value but 1 lower
 
-        t0 = max(min( delay_remainder/swing_timer*1.5, 1.5 ),                  0)
-        t1 = max(min( num_sum - delay_remainder,        .5 )/swing_timer,      0)
-        t2 = max(min( num_sum - delay_remainder - .5,   .5 )/swing_timer * .5, 0)
+        t0 = max(min(delay_remainder / swing_timer * 1.5, 1.5 ),              0)
+        t1 = max(min(num_sum - delay_remainder,        .5 )/swing_timer,      0)
+        t2 = max(min(num_sum - delay_remainder - .5,   .5 )/swing_timer * .5, 0)
 
         return (t0+t1+t2)/swing_timer
 
@@ -463,16 +461,16 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
     def get_shadow_focus_multiplier(self):
         if self.talents.shadow_focus:
-            return (1 - .75)
+            return 1 - .75
         return 1.
 
-    def setup_unique_procs(self, current_stats, average_ap):
+    def setup_unique_procs(self, average_ap):
         if self.stats.procs.rocket_barrage:
             getattr(self.stats.procs, 'rocket_barrage').value = 0.42900 * self.base_intellect + .5 * average_ap + 1 + self.level * 2 #need to update
         if self.stats.procs.touch_of_the_grave:
             getattr(self.stats.procs, 'touch_of_the_grave').value = 8 * self.tools.get_constant_scaling_point(self.level) # +/- 15% spread
 
-    def get_poison_counts(self, attacks_per_second, current_stats):
+    def get_poison_counts(self, attacks_per_second):
         # Builds a phony 'poison' proc object to count triggers through the proc
         # methods.
         poison = procs.Proc(**proc_data.allowed_procs['rogue_poison'])
@@ -554,7 +552,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
         #sort the procs into groups
         for proc in self.stats.procs.get_all_procs_for_stat():
-            if (proc.stat == 'stats'):
+            if proc.stat == 'stats':
                 if proc.is_real_ppm():
                     active_procs_rppm.append(proc)
                 else:
@@ -570,14 +568,13 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 weapon_damage_procs.append(proc)
 
         #calculate weapon procs
-        weapon_enchants = set([])
         for hand, enchant in [(x, y) for x in ('mh', 'oh') for y in ('dancing_steel', 'mark_of_the_frostwolf',
                                                                      'mark_of_the_shattered_hand', 'mark_of_the_thunderlord',
                                                                      'mark_of_the_bleeding_hollow', 'mark_of_warsong')]:
             proc = getattr(getattr(self.stats, hand), enchant)
             if proc:
                 setattr(proc, '_'.join((hand, 'only')), True)
-                if (proc.stat in current_stats or proc.stat == 'stats'):
+                if proc.stat in current_stats or proc.stat == 'stats':
                     if proc.is_real_ppm():
                         active_procs_rppm.append(proc)
                     else:
@@ -608,10 +605,10 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             if proc.stat == 'stats':
                 self.set_rppm_uptime(proc)
                 for e in proc.value:
-                    static_proc_stats[ e ] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
+                    static_proc_stats[e] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
 
         for k in static_proc_stats:
-            current_stats[k] +=  static_proc_stats[ k ]
+            current_stats[k] += static_proc_stats[k]
 
         attacks_per_second, crit_rates, additional_info = attack_counts_function(current_stats)
         recalculate_crit = False
@@ -621,7 +618,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         convergence_stats = False
         if len(active_procs_no_icd) > 0:
             need_converge = True
-        while (need_converge or self.spec_needs_converge):
+        while need_converge or self.spec_needs_converge:
             current_stats = {
                 'str': self.base_strength,
                 'agi': self.base_stats['agi'] * self.stat_multipliers['agi'],
@@ -632,7 +629,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 'versatility': self.base_stats['versatility'] * self.stat_multipliers['versatility'],
             }
             for k in static_proc_stats:
-                current_stats[k] +=  static_proc_stats[k]
+                current_stats[k] += static_proc_stats[k]
 
             for proc in active_procs_no_icd:
                 self.set_uptime(proc, attacks_per_second, crit_rates)
@@ -641,7 +638,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                         convergence_stats = True
                     if e == 'crit':
                         recalculate_crit = True
-                    current_stats[ e ] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
+                    current_stats[e] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
 
             #only have to converge with specific procs
             #check if... assassination:crit/haste, outlaw:mastery/haste, sub:haste/mastery
@@ -662,7 +659,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             for e in proc.value:
                 if e == 'crit':
                     recalculate_crit = True
-                current_stats[ e ] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
+                current_stats[e] += proc.uptime * proc.value[e] * self.stat_multipliers[e]
 
         #if no new stats are added, skip this step
         if len(active_procs_icd) > 0 or self.spec_needs_converge:
@@ -671,7 +668,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             attacks_per_second, crit_rates, additional_info = attack_counts_function(current_stats, crit_rates=crit_rates)
 
         #some procs need specific prep, think RoRO/VoS
-        self.setup_unique_procs(current_stats, current_stats['agi']+current_stats['ap'])
+        self.setup_unique_procs(current_stats['agi'] + current_stats['ap'])
 
         for proc in damage_procs:
             self.update_with_damaging_proc(proc, attacks_per_second, crit_rates)
@@ -732,6 +729,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         self.vendetta_cd = self.get_spell_cd('vendetta')
         #cp stacking handlers
 
+        # TODO: kb_venn_uptime is unused
         if self.settings.cycle.kingsbane_with_vendetta == 'only':
             self.kingsbane_cd = min(self.vendetta_cd, self.get_spell_cd('kingsbane'))
             kb_venn_uptime = 1.0
@@ -739,6 +737,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             self.kingsbane_cd = self.get_spell_cd('kingsbane')
             kb_venn_uptime = self.kingsbane_cd/self.vendetta_cd
 
+        # TODO: exsang_venn_uptime is unused
         if self.settings.cycle.exsang_with_vendetta == 'only':
             self.exsang_cd = min(self.vendetta_cd), self.get_spell_cd('exsanguinate')
             exsang_venn_uptime = 1.0
@@ -748,9 +747,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
 
         stats, aps, crits, procs, additional_info = self.determine_stats(self.assassination_attack_counts)
-        damage_breakdown, additional_info  = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
+        damage_breakdown, additional_info = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
 
-        agonizing_poison_mod = 1
+        agonizing_poison_mod = 1.
         if self.talents.agonizing_poison:
             agonizing_poison_mod = 0.04
             if self.traits.surge_of_toxins:
@@ -769,7 +768,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
         hemo_mod = 1 + 0.25 * self.talents.hemorrhage
 
-        surge_mod = 1
+        surge_mod = 1.
         if self.traits.surge_of_toxins:
             surge_mod = 1 + self.surge_of_toxins_multiplier
 
@@ -797,7 +796,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         attacks_per_second = {}
         additional_info = {}
 
-        if crit_rates == None:
+        if crit_rates is None:
             crit_rates = self.get_crit_rates(current_stats)
 
         # set up our finisher distributions
@@ -816,7 +815,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         #if anticipation we can just assume no waste
         if self.talents.anticipation:
             avg_cp_per_builder = sum([cp * cpg_cps[cp] for cp in cpg_cps])
-            builders_per_finisher =  self.settings.finisher_threshold/avg_cp_per_builder
+            builders_per_finisher = self.settings.finisher_threshold/avg_cp_per_builder
             avg_finisher_size = self.settings.finisher_threshold
             finisher_list = [0, 0, 0, 0, 0, 0, 0]
             finisher_list[self.settings.finisher_threshold] = 1.0
@@ -885,7 +884,6 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         garrote_cooldown = 15.
         if self.talents.exsanguinate:
             exsang_garrote_duration = base_garrote_duration / 2
-            exsang_downtime = garrote_cooldown - exsang_garrote_duration
             normal_garrote_per_exsang = (self.exsang_cd - garrote_cooldown) / base_garrote_duration
             attacks_per_second['garrote'] = (1 + normal_garrote_per_exsang) / self.exsang_cd
             attacks_per_second['garrote_ticks'] = 1.5 * float(exsang_garrote_duration) / self.exsang_cd + \
@@ -958,7 +956,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         alacrity_stacks = 0
         while energy_budget > 0.1:
             if loop_counter > 20:
-                   raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
+                raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
             loop_counter += 1
 
             total_minicycles = float(energy_budget) / mini_cycle_energy
@@ -979,7 +977,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         attacks_per_second['oh_autoattacks'] = attacks_per_second['mh_autoattacks']
 
         #poison computations, use old function for now
-        self.get_poison_counts(attacks_per_second, current_stats)
+        self.get_poison_counts(attacks_per_second)
         if self.talents.agonizing_poison:
             stack_time = 5./attacks_per_second['agonizing_poison']
             max_time = self.settings.duration - stack_time
@@ -1050,70 +1048,70 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         #values are (ss_per_min_cycle, ps_per_min_cycle, finisher_cp_list)
         #TODO: 60 element table is probably a bit much, should probably be condensed
         self.minicycle_table = {
-            (4, True, True, False, True, True) : (0.92778015, 0.5566681, [0, 0, 0, 0, 0.46230870485305786, 0.40208783745765686, 0.13560345768928528]) ,
-            (4, True, True, False, True, False) : (1.2831669, 0.44910839, [0, 0, 0, 0, 0.35908344388008118, 0.49529376626014709, 0.14562278985977173]) ,
-            (4, True, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0.0]) ,
-            (4, True, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0.0]) ,
-            (4, True, False, True, True, True) : (1.7995313, 1.2596719, [0, 0, 0, 0, 0.19270744919776917, 0.39063876867294312, 0.41665378212928772]) ,
-            (4, True, False, True, True, False) : (1.759297, 0.79168367, [0, 0, 0, 0, 0.13849352300167084, 0.56256377696990967, 0.29894271492958069]) ,
-            (4, True, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0.0]) ,
-            (4, True, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0.0]) ,
-            (4, True, False, False, True, True) : (1.7663901, 1.059834, [0, 0, 0, 0, 0.17100141942501068, 0.45841407775878906, 0.37058448791503906]) ,
-            (4, True, False, False, True, False) : (1.7791812, 0.62271339, [0, 0, 0, 0, 0.11556066572666168, 0.63698828220367432, 0.24745103716850281]) ,
-            (4, True, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0.0]) ,
-            (4, True, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0.0]) ,
-            (4, False, True, False, True, True) : (0.90085906, 0.54051542, [0, 0, 0, 0, 0.46230870485305786, 0.53769129514694214, 0]) ,
-            (4, False, True, False, True, False) : (1.2441286, 0.43544501, [0, 0, 0, 0, 0.35908344388008118, 0.64091658592224121, 0]) ,
-            (4, False, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0]) ,
-            (4, False, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0]) ,
-            (4, False, False, True, True, True) : (1.6560036, 1.1592025, [0, 0, 0, 0, 0.19270744919776917, 0.80729258060455322, 0]) ,
-            (4, False, False, True, True, False) : (1.6573817, 0.74582177, [0, 0, 0, 0, 0.13849352300167084, 0.86150646209716797, 0]) ,
-            (4, False, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0]) ,
-            (4, False, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0]) ,
-            (4, False, False, False, True, True) : (1.640496, 0.98429757, [0, 0, 0, 0, 0.17100141942501068, 0.82899856567382812, 0]) ,
-            (4, False, False, False, True, False) : (1.693392, 0.59268725, [0, 0, 0, 0, 0.11556066572666168, 0.88443934917449951, 0]) ,
-            (4, False, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0]) ,
-            (4, False, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0]) ,
-            (5, True, True, False, True, True) : (1.5440897, 0.92645377, [0, 0, 0, 0, 0, 0.47792428731918335, 0.52207571268081665]) ,
-            (5, True, True, False, True, False) : (1.6837471, 0.58931148, [0, 0, 0, 0, 0, 0.52392536401748657, 0.47607460618019104]) ,
-            (5, True, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 0.71698111295700073, 0.28301885724067688]) ,
-            (5, True, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 0.70232254266738892, 0.29767745733261108]) ,
-            (5, True, False, True, True, True) : (2.7676663, 1.9373665, [0, 0, 0, 0, 0, 0.32654938101768494, 0.67345058917999268]) ,
-            (5, True, False, True, True, False) : (2.0575211, 0.92588449, [0, 0, 0, 0, 0, 0.53625214099884033, 0.46374788880348206]) ,
-            (5, True, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 0.69184529781341553, 0.30815470218658447]) ,
-            (5, True, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 0.7762836217880249, 0.22371639311313629]) ,
-            (5, True, False, False, True, True) : (2.3502514, 1.4101509, [0, 0, 0, 0, 0, 0.41270622611045837, 0.58729374408721924]) ,
-            (5, True, False, False, True, False) : (1.9709414, 0.68982947, [0, 0, 0, 0, 0, 0.62002801895141602, 0.37997198104858398]) ,
-            (5, True, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 0.72999167442321777, 0.27000829577445984]) ,
-            (5, True, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 0.80499798059463501, 0.19500201940536499]) ,
-            (5, False, True, False, True, True) : (1.475865, 0.88551903, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, True, False) : (1.6334157, 0.57169551, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, True, True) : (2.5490196, 1.7843137, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, True, False) : (1.9435737, 0.87460816, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, True, True) : (2.1875, 1.3125, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, True, False) : (1.8803419, 0.65811968, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (6, True, True, False, True, True) : (2.7550187, 1.6530112, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, True, False) : (2.4767113, 0.86684889, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, False, True) : (1.8489302, 1.1093582, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, False, False) : (2.4813204, 0.86846215, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, True, True) : (1.8811882, 1.3168317, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, True, False) : (2.0423892, 0.91907513, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, False, True) : (2.1186955, 1.4830868, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, False, False) : (2.6321666, 1.1844751, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, True, True) : (1.9298246, 1.1578947, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, True, False) : (2.1415608, 0.74954629, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, False, True) : (2.2952538, 1.3771522, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, False, False) : (2.9230175, 1.0230561, [0, 0, 0, 0, 0, 0, 1.0]) ,
+            (4, True, True, False, True, True) : (0.92778015, 0.5566681, [0, 0, 0, 0, 0.46230870485305786, 0.40208783745765686, 0.13560345768928528]),
+            (4, True, True, False, True, False) : (1.2831669, 0.44910839, [0, 0, 0, 0, 0.35908344388008118, 0.49529376626014709, 0.14562278985977173]),
+            (4, True, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0.0]),
+            (4, True, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0.0]),
+            (4, True, False, True, True, True) : (1.7995313, 1.2596719, [0, 0, 0, 0, 0.19270744919776917, 0.39063876867294312, 0.41665378212928772]),
+            (4, True, False, True, True, False) : (1.759297, 0.79168367, [0, 0, 0, 0, 0.13849352300167084, 0.56256377696990967, 0.29894271492958069]),
+            (4, True, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0.0]),
+            (4, True, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0.0]),
+            (4, True, False, False, True, True) : (1.7663901, 1.059834, [0, 0, 0, 0, 0.17100141942501068, 0.45841407775878906, 0.37058448791503906]),
+            (4, True, False, False, True, False) : (1.7791812, 0.62271339, [0, 0, 0, 0, 0.11556066572666168, 0.63698828220367432, 0.24745103716850281]),
+            (4, True, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0.0]),
+            (4, True, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0.0]),
+            (4, False, True, False, True, True) : (0.90085906, 0.54051542, [0, 0, 0, 0, 0.46230870485305786, 0.53769129514694214, 0]),
+            (4, False, True, False, True, False) : (1.2441286, 0.43544501, [0, 0, 0, 0, 0.35908344388008118, 0.64091658592224121, 0]),
+            (4, False, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0]),
+            (4, False, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0]),
+            (4, False, False, True, True, True) : (1.6560036, 1.1592025, [0, 0, 0, 0, 0.19270744919776917, 0.80729258060455322, 0]),
+            (4, False, False, True, True, False) : (1.6573817, 0.74582177, [0, 0, 0, 0, 0.13849352300167084, 0.86150646209716797, 0]),
+            (4, False, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0]),
+            (4, False, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0]),
+            (4, False, False, False, True, True) : (1.640496, 0.98429757, [0, 0, 0, 0, 0.17100141942501068, 0.82899856567382812, 0]),
+            (4, False, False, False, True, False) : (1.693392, 0.59268725, [0, 0, 0, 0, 0.11556066572666168, 0.88443934917449951, 0]),
+            (4, False, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0]),
+            (4, False, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0]),
+            (5, True, True, False, True, True) : (1.5440897, 0.92645377, [0, 0, 0, 0, 0, 0.47792428731918335, 0.52207571268081665]),
+            (5, True, True, False, True, False) : (1.6837471, 0.58931148, [0, 0, 0, 0, 0, 0.52392536401748657, 0.47607460618019104]),
+            (5, True, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 0.71698111295700073, 0.28301885724067688]),
+            (5, True, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 0.70232254266738892, 0.29767745733261108]),
+            (5, True, False, True, True, True) : (2.7676663, 1.9373665, [0, 0, 0, 0, 0, 0.32654938101768494, 0.67345058917999268]),
+            (5, True, False, True, True, False) : (2.0575211, 0.92588449, [0, 0, 0, 0, 0, 0.53625214099884033, 0.46374788880348206]),
+            (5, True, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 0.69184529781341553, 0.30815470218658447]),
+            (5, True, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 0.7762836217880249, 0.22371639311313629]),
+            (5, True, False, False, True, True) : (2.3502514, 1.4101509, [0, 0, 0, 0, 0, 0.41270622611045837, 0.58729374408721924]),
+            (5, True, False, False, True, False) : (1.9709414, 0.68982947, [0, 0, 0, 0, 0, 0.62002801895141602, 0.37997198104858398]),
+            (5, True, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 0.72999167442321777, 0.27000829577445984]),
+            (5, True, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 0.80499798059463501, 0.19500201940536499]),
+            (5, False, True, False, True, True) : (1.475865, 0.88551903, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, True, False, True, False) : (1.6334157, 0.57169551, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, True, True, True) : (2.5490196, 1.7843137, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, True, True, False) : (1.9435737, 0.87460816, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, False, True, True) : (2.1875, 1.3125, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, False, True, False) : (1.8803419, 0.65811968, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 1.0, 0]),
+            (5, False, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 1.0, 0]),
+            (6, True, True, False, True, True) : (2.7550187, 1.6530112, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, True, False, True, False) : (2.4767113, 0.86684889, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, True, False, False, True) : (1.8489302, 1.1093582, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, True, False, False, False) : (2.4813204, 0.86846215, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, True, True, True) : (1.8811882, 1.3168317, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, True, True, False) : (2.0423892, 0.91907513, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, True, False, True) : (2.1186955, 1.4830868, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, True, False, False) : (2.6321666, 1.1844751, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, False, True, True) : (1.9298246, 1.1578947, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, False, True, False) : (2.1415608, 0.74954629, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, False, False, True) : (2.2952538, 1.3771522, [0, 0, 0, 0, 0, 0, 1.0]),
+            (6, True, False, False, False, False) : (2.9230175, 1.0230561, [0, 0, 0, 0, 0, 0, 1.0]),
         }
 
         stats, aps, crits, procs, additional_info = self.determine_stats(self.outlaw_attack_counts)
-        damage_breakdown, additional_info  = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
+        damage_breakdown, additional_info = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
 
         bf_mod = .35
         if self.settings.cycle.blade_flurry:
@@ -1145,7 +1143,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         if self.settings.cycle.blade_flurry:
             self.base_energy_regen *= .8 + (0.03333 * self.traits.blade_dancer)
 
-        if crit_rates == None:
+        if crit_rates is None:
             crit_rates = self.get_crit_rates(current_stats)
 
         self.haste_multiplier = self.stats.get_haste_multiplier_from_rating(current_stats['haste']) * self.true_haste_mod
@@ -1182,8 +1180,8 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         maintainence_buff_duration = 6 * (1 + self.settings.finisher_threshold)
 
         if self.talents.slice_and_dice:
-            aps_normal = self.outlaw_attack_counts_mincycle(current_stats, snd=True, duration=maintainence_buff_duration)
-            aps_ar = self.outlaw_attack_counts_mincycle(current_stats, snd=True, ar=True, duration=self.ar_duration)
+            aps_normal = self.outlaw_attack_counts_mincycle(snd=True, duration=maintainence_buff_duration)
+            aps_ar = self.outlaw_attack_counts_mincycle(snd=True, ar=True, duration=self.ar_duration)
         else:
             for phase in self.settings.cycle.keep_list:
                 jolly = 'jr' in phase
@@ -1194,12 +1192,10 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 shark = 's' in phase
 
                 chance = self.rtb_probabilities[len(phase)]/self.rtb_buff_count[len(phase)]
-                aps = self.outlaw_attack_counts_mincycle(current_stats, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, shark=shark, true_bearing=true_bearing,
-                        duration=maintainence_buff_duration)
-                aps_ar = self.outlaw_attack_counts_mincycle(current_stats,  ar=True, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, shark=shark, true_bearing=true_bearing,
-                        duration=self.ar_duration)
+                aps = self.outlaw_attack_counts_mincycle(jolly=jolly, melee=melee, buried=buried, broadsides=broadsides, shark=shark,
+                                                         true_bearing=true_bearing, duration=maintainence_buff_duration)
+                aps_ar = self.outlaw_attack_counts_mincycle(ar=True, jolly=jolly, melee=melee, buried=buried, broadsides=broadsides,
+                                                            shark=shark, true_bearing=true_bearing, duration=self.ar_duration)
                 phases[phase] = (chance, aps)
                 ar_phases[phase] = (chance, aps_ar)
                 keep_chance += chance
@@ -1239,10 +1235,10 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 shark = 's' in phase
 
                 chance = self.rtb_probabilities[len(phase)]/self.rtb_buff_count[len(phase)]
-                aps, reroll_time = self.outlaw_attack_counts_reroll(current_stats, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, alacrity_stacks=alacrity_stacks)
-                aps_ar, reroll_time_ar = self.outlaw_attack_counts_reroll(current_stats,  ar=True, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, alacrity_stacks=alacrity_stacks_ar)
+                aps, reroll_time = self.outlaw_attack_counts_reroll(jolly=jolly, melee=melee, buried=buried, broadsides=broadsides,
+                                                                    alacrity_stacks=alacrity_stacks)
+                aps_ar, reroll_time_ar = self.outlaw_attack_counts_reroll(ar=True, jolly=jolly, melee=melee, buried=buried,
+                                                                          broadsides=broadsides, alacrity_stacks=alacrity_stacks_ar)
                 phases[phase] = (chance * reroll_time, aps)
                 ar_phases[phase] = (chance * reroll_time_ar, aps_ar)
                 net_reroll_time += chance * reroll_time
@@ -1287,8 +1283,10 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             shark_uptime = (keep_uptime * keep_shark_uptime) + (1 - keep_uptime) * reroll_shark_uptime
 
         #determine ar uptime and merge the two distributions
-        attacks_per_second = self.merge_attacks_per_second({'normal': (self.ar_cd - self.ar_duration, aps_normal),
-            'ar': (self.ar_duration, aps_ar)}, total_time=self.ar_cd)
+        attacks_per_second = self.merge_attacks_per_second({
+            'normal': (self.ar_cd - self.ar_duration, aps_normal),
+            'ar': (self.ar_duration, aps_ar)
+        }, total_time=self.ar_cd)
         ar_uptime = self.ar_duration / self.ar_cd
         tb_seconds_per_second = 0
 
@@ -1299,7 +1297,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         if not self.talents.slice_and_dice:
             old_ar_cd = self.ar_cd
             loop_counter = 0
-            while (loop_counter < 20):
+            while loop_counter < 20:
                 cp_spend_per_second = 0
                 for ability in attacks_per_second:
                     if ability in self.finisher_damage_sources:
@@ -1312,8 +1310,10 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 #remerge the aps
                 #print new_ar_cd
                 #print attacks_per_second
-                attacks_per_second = self.merge_attacks_per_second({'normal': (new_ar_cd - self.ar_duration, aps_normal),
-                    'ar': (self.ar_duration, aps_ar)}, total_time=new_ar_cd)
+                attacks_per_second = self.merge_attacks_per_second({
+                    'normal': (new_ar_cd - self.ar_duration, aps_normal),
+                    'ar': (self.ar_duration, aps_ar)
+                }, total_time=new_ar_cd)
                 # print new_ar_cd
                 # print "-------"
                 if old_ar_cd - new_ar_cd < 0.1:
@@ -1348,7 +1348,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         for ability in attacks_per_second:
             if ability in ['ambush', 'ghostly_strike', 'killing_spree', 'saber_slash']:
                 attacks_per_second['main_gauche'] += self.main_gauche_proc_rate * attacks_per_second[ability]
-            elif ability in ['death_from_above_pulse', 'death_from_above_strike','run_through',]:
+            elif ability in ['death_from_above_pulse', 'death_from_above_strike', 'run_through']:
                 attacks_per_second['main_gauche'] += sum(attacks_per_second[ability]) * self.main_gauche_proc_rate
 
         if not self.talents.slice_and_dice:
@@ -1369,11 +1369,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         # print attacks_per_second
         return attacks_per_second, crit_rates, additional_info
 
-    def outlaw_attack_counts_mincycle(self, current_stats, snd=False, ar=False,
-        jolly=False, melee=False, buried=False, broadsides=False, duration=30,
-        #probably don't actually need shark or tb here but simpler
-        shark=False, true_bearing=True):
-        maintainence_buff ='roll_the_bones'
+    # probably don't actually need shark or tb here but simpler
+    def outlaw_attack_counts_mincycle(self, snd=False, ar=False, jolly=False, melee=False, buried=False, broadsides=False, duration=30, shark=False, true_bearing=True):
+        maintainence_buff = 'roll_the_bones'
         attack_speed_multiplier = self.haste_multiplier
         if melee:
             attack_speed_multiplier *= 1.5
@@ -1474,7 +1472,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         attacks_per_second['run_through'] = [0, 0, 0, 0, 0, 0, 0]
         while energy_budget > 0.1 and gcd_budget > 0.1:
             if loop_counter > 20:
-                   raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
+                raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
 
             loop_counter += 1
             minicycle_count = min(gcd_budget/gcds_per_minicycle, energy_budget/energy_per_minicycle)
@@ -1505,8 +1503,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         #skip white swings and mg procs because we can do those later
         return attacks_per_second
 
-    def outlaw_attack_counts_reroll(self, current_stats, ar=False,
-        jolly=False, melee=False, buried=False, broadsides=False, alacrity_stacks=0):
+    def outlaw_attack_counts_reroll(self, ar=False, jolly=False, melee=False, buried=False, broadsides=False, alacrity_stacks=0):
         #fetch minicycle value
         minicycle_key = (self.settings.finisher_threshold, bool(self.talents.deeper_strategem), bool(self.talents.quick_draw),
                          bool(self.talents.swordmaster), broadsides, jolly)
@@ -1540,8 +1537,8 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         attacks_per_second = {}
         for key in aps_dicts:
             proportion, aps = aps_dicts[key]
-            uptime = float(proportion)/total_time
-            total+= uptime
+            uptime = float(proportion) / total_time
+            total += uptime
             #print uptime, total
 
             for ability in aps:
@@ -1625,7 +1622,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         self.damage_modifier_cache = 1.2 * (1 +(0.005 * self.traits.legionblade))
 
         stats, aps, crits, procs, additional_info = self.determine_stats(self.subtlety_attack_counts)
-        damage_breakdown, additional_info  = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
+        damage_breakdown, additional_info = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
 
         infallible_trinket_mod = 1.0
         if self.settings.is_demon:
@@ -1692,7 +1689,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
     def subtlety_attack_counts(self, current_stats, crit_rates=None):
         attacks_per_second = {}
         additional_info = {}
-        if crit_rates == None:
+        if crit_rates is None:
             crit_rates = self.get_crit_rates(current_stats)
 
         use_sod = False
@@ -1781,7 +1778,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
             #Not using finishers during dance
             else:
-                finisher=None
+                finisher = None
                 dance_count = len(sod_timeline)
                 sod_timeline = []
 
@@ -1848,7 +1845,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         if self.talents.subterfuge:
             net_energy, net_cps, spent_cps, attack_counts = self.get_dance_resources(use_sod=use_sod, finisher='eviscerate', vanish=True)
         else:
-           net_energy, net_cps, spent_cps, attack_counts = self.get_dance_resources(use_sod=use_sod, finisher=None, vanish=True)
+            net_energy, net_cps, spent_cps, attack_counts = self.get_dance_resources(use_sod=use_sod, finisher=None, vanish=True)
         self.energy_budget += vanish_count * net_energy
         self.cp_budget += vanish_count * net_cps
         self.dance_budget += ((3. * spent_cps* vanish_count)/60)
@@ -1869,7 +1866,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         extra_evis = 0
         extra_builders = 0
         #Not enough dances, generate some more
-        if self.dance_budget<0:
+        if self.dance_budget < 0:
             cps_required = abs(self.dance_budget) * 20
             extra_evis += cps_required/self.settings.finisher_threshold
             self.energy_budget += self.net_evis_cost
@@ -1882,7 +1879,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             loop_counter = 0
             while self.dance_budget > 0.0001:
                 if loop_counter > 100:
-                   raise ConvergenceErrorException(_('Dance fixup failed to converge.'))
+                    raise ConvergenceErrorException(_('Dance fixup failed to converge.'))
                 dance_count = abs(self.dance_budget)
                 self.energy_budget += dance_count * net_energy
                 self.cp_budget += dance_count * net_cps
@@ -1892,7 +1889,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 loop_counter += 1
 
         #if we don't have enough cps lets build some
-        if self.cp_budget <0:
+        if self.cp_budget < 0:
             #can add since we know cp_budget is negative
             self.energy_budget += self.cp_budget * energy_per_cp
             extra_builders += abs(self.cp_budget) / cp_per_builder
@@ -1917,7 +1914,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         alacrity_stacks = 0
         while self.energy_budget > 0.1:
             if loop_counter > 20:
-                   raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
+                raise ConvergenceErrorException(_('Mini-cycles failed to converge.'))
             loop_counter += 1
             cps_to_generate = max(cps_per_dance - self.cp_budget, 0)
             builders_per_minicycle = cps_to_generate / cp_per_builder
@@ -1977,18 +1974,18 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         if self.talents.master_of_subtlety:
             stealth_time = 9. * attacks_per_second['shadow_dance'] + 6 * attacks_per_second['vanish']
             if self.talents.subterfuge:
-                 stealth_time = 11. * attacks_per_second['shadow_dance'] + 9 * attacks_per_second['vanish']
-            self.mos_time =  float(stealth_time)/self.settings.duration
+                stealth_time = 11. * attacks_per_second['shadow_dance'] + 9 * attacks_per_second['vanish']
+            self.mos_time = float(stealth_time)/self.settings.duration
 
         if self.talents.nightstalker:
             self.dance_finality_nb_uptime = dance_finality_nb_uptime
             self.dance_nb_uptime = dance_nb_uptime
 
-        for ability in attacks_per_second.keys():
-            if not attacks_per_second[ability]:
-                del attacks_per_second[ability]
-            elif isinstance(attacks_per_second[ability], list) and not any(attacks_per_second[ability]):
-                del attacks_per_second[ability]
+        for ability, value in attacks_per_second.iteritems():
+            if not value:
+                del value
+            elif isinstance(value, list) and not any(value):
+                del value
 
         #determine how many evis used during dance
         if self.settings.cycle.dance_finishers_allowed:
@@ -2020,7 +2017,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                     for cp in xrange(7):
                         attacks_per_second[ability][cp] *= 1.06
                 else:
-                    attacks_per_second[ability] *=1.06
+                    attacks_per_second[ability] *= 1.06
 
         return attacks_per_second, crit_rates, additional_info
 
@@ -2104,7 +2101,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
     #Takes in the full attacks per second dict and a raw attack counts dict
     #adds attack countes into the rotation at global scope
-    def rotation_merge (self, attacks_per_second, attack_counts, count):
+    def rotation_merge(self, attacks_per_second, attack_counts, count):
         rotations_per_second = float(count)/self.settings.duration
         for ability in attack_counts:
             if ability in self.finisher_damage_sources:

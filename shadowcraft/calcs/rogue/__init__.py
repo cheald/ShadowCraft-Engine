@@ -196,7 +196,7 @@ class RogueDamageCalculator(DamageCalculator):
         average_ap = current_stats['ap'] + current_stats['agi'] * self.stat_multipliers['ap']
         max_cps = 5 + int(self.talents.deeper_strategem)
 
-        self.setup_unique_procs(current_stats, average_ap)
+        self.setup_unique_procs(average_ap)
 
         damage_breakdown = {}
 
@@ -229,7 +229,7 @@ class RogueDamageCalculator(DamageCalculator):
             if proc.proc_name not in damage_breakdown:
                 # Toss multiple damage procs with the same name (Avalanche):
                 # attacks_per_second is already being updated with that key.
-                damage_breakdown[proc.proc_name] = self.get_proc_damage_contribution(proc, attacks_per_second[proc.proc_name], current_stats, average_ap, damage_breakdown)
+                damage_breakdown[proc.proc_name] = self.get_proc_damage_contribution(proc, attacks_per_second[proc.proc_name], current_stats, average_ap)
 
         #compute damage breakdown for each spec
         if self.spec == 'assassination':

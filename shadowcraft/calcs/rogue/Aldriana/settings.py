@@ -3,9 +3,8 @@ from shadowcraft.core import exceptions
 class Settings(object):
     # Settings object for AldrianasRogueDamageCalculator.
 
-    def __init__(self, cycle, response_time=.5, latency=.03, duration=300, adv_params=None,
-                 merge_damage=True, num_boss_adds=0, feint_interval=0, default_ep_stat='ap', is_day=False, is_demon=False,
-                 marked_for_death_resets=0, finisher_threshold=5):
+    def __init__(self, cycle, response_time=.5, latency=.03, duration=300, adv_params=None, num_boss_adds=0, feint_interval=0,
+                 default_ep_stat='ap', is_day=False, is_demon=False, marked_for_death_resets=0, finisher_threshold=5):
         self.cycle = cycle
         self.response_time = response_time
         self.latency = latency
@@ -17,7 +16,7 @@ class Settings(object):
         self.adv_params = self.interpret_adv_params(adv_params)
         self.default_ep_stat = default_ep_stat
         #per minute
-        self.marked_for_death_resets=marked_for_death_resets
+        self.marked_for_death_resets = marked_for_death_resets
 
         #TODO: can be overridden by spec specific finisher thresholds
         self.finisher_threshold = finisher_threshold
@@ -62,7 +61,7 @@ class Cycle(object):
 class AssassinationCycle(Cycle):
     _cycle_type = 'assassination'
 
-    def __init__(self, kingsbane_with_vendetta ='just', exsang_with_vendetta='just', cp_builder='mutilate'):
+    def __init__(self, kingsbane_with_vendetta='just', exsang_with_vendetta='just', cp_builder='mutilate'):
         self.cp_builder = cp_builder #Allowed values: 'mutilate', 'fan_of_knives'
         #Cooldown scheduling and usage settings
         #Allowed values: 'just': Use cooldown if it aligns with vendetta but don't delay usages
@@ -91,7 +90,7 @@ class OutlawCycle(Cycle):
                   #2 buffs
                   ('jr', 'gm'), ('jr', 's'), ('jr', 'tb'),
                   ('jr', 'bt'), ('jr', 'b'), ('gm', 's'),
-                  ('gm', 'tb'), ('gm', 'bt'), ('gm', 'b'), 
+                  ('gm', 'tb'), ('gm', 'bt'), ('gm', 'b'),
                   ('s', 'tb'), ('s', 'bt'), ('s', 'b'),
                   ('tb', 'bt'), ('tb', 'b'), ('bt', 'b'),
                   #single buffs
@@ -150,4 +149,4 @@ class SubtletyCycle(Cycle):
                                              #'always' - use SoD every dance (macro)
                                              #'just'   - Only use SoD when needed to refresh
         #Allow finishers to be scheduled during dance
-        self.dance_finishers_allowed= dance_finishers_allowed
+        self.dance_finishers_allowed = dance_finishers_allowed

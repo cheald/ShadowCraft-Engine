@@ -1148,13 +1148,6 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         stats, aps, crits, procs, additional_info = self.determine_stats(self.outlaw_attack_counts)
         damage_breakdown, additional_info  = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
 
-        bf_mod = .35
-        if self.settings.cycle.blade_flurry:
-            damage_breakdown['blade_flurry'] = 0
-            for key in damage_breakdown:
-                if key in self.blade_flurry_damage_sources:
-                    damage_breakdown['blade_flurry'] += bf_mod * damage_breakdown[key] * self.settings.num_boss_adds
-
         infallible_trinket_mod = 1.0
         if self.settings.is_demon:
             if getattr(self.stats.procs, 'infallible_tracking_charm_mod'):
@@ -1162,8 +1155,26 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 self.set_rppm_uptime(ift)
                 infallible_trinket_mod = 1+(ift.uptime *0.10)
 
+        ds_multiplier = 1.0
+        if self.talents.deeper_strategem:
+            ds_multiplier = 1.1
+
+        gs_multiplier = 1.0
+        if self.talents.ghostly_strike:
+            gs_multiplier = 1.1
+
         for ability in damage_breakdown:
             damage_breakdown[ability] *= infallible_trinket_mod
+            damage_breakdown[ability] *= gs_multiplier
+            if ability in self.finisher_damage_sources:
+                damage_breakdown[ability] *= ds_multiplier
+
+        bf_mod = .35
+        if self.settings.cycle.blade_flurry:
+            damage_breakdown['blade_flurry'] = 0
+            for key in damage_breakdown:
+                if key in self.blade_flurry_damage_sources:
+                    damage_breakdown['blade_flurry'] += bf_mod * damage_breakdown[key] * self.settings.num_boss_adds
 
         return damage_breakdown
 
@@ -1548,7 +1559,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         return attacks_per_second, reroll_time
 
     #dict of (probability, aps) pairs
-    def merge_attacks_per_second(self, aps_dicts):
+    def merge_attacks_per_second(self, aps_dicts, total_time=None):
+        if total_time:
+            warn("Warning: Deprecated parameter total_time")
         total_time = reduce(lambda t, (k, (x, y)): t + x, aps_dicts.iteritems(), 0)
         attacks_per_second = {}
         for key in aps_dicts:

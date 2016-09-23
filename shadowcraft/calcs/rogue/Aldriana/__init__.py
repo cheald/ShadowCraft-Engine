@@ -28,6 +28,73 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
     # on talent tree.
     ###########################################################################
 
+    #table of minicycle ability amounts
+    #indexed by (min_spend_cps, deeper_strat, quick_draw, swordmaster, broadside, jollyroger)
+    #values are (ss_per_min_cycle, ps_per_min_cycle, finisher_cp_list)
+    #TODO: 60 element table is probably a bit much, should probably be condensed
+    MINICYCLE_TABLE = {
+        (4, True, True, False, True, True) : (0.92778015, 0.5566681, [0, 0, 0, 0, 0.46230870485305786, 0.40208783745765686, 0.13560345768928528]) ,
+        (4, True, True, False, True, False) : (1.2831669, 0.44910839, [0, 0, 0, 0, 0.35908344388008118, 0.49529376626014709, 0.14562278985977173]) ,
+        (4, True, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0.0]) ,
+        (4, True, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0.0]) ,
+        (4, True, False, True, True, True) : (1.7995313, 1.2596719, [0, 0, 0, 0, 0.19270744919776917, 0.39063876867294312, 0.41665378212928772]) ,
+        (4, True, False, True, True, False) : (1.759297, 0.79168367, [0, 0, 0, 0, 0.13849352300167084, 0.56256377696990967, 0.29894271492958069]) ,
+        (4, True, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0.0]) ,
+        (4, True, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0.0]) ,
+        (4, True, False, False, True, True) : (1.7663901, 1.059834, [0, 0, 0, 0, 0.17100141942501068, 0.45841407775878906, 0.37058448791503906]) ,
+        (4, True, False, False, True, False) : (1.7791812, 0.62271339, [0, 0, 0, 0, 0.11556066572666168, 0.63698828220367432, 0.24745103716850281]) ,
+        (4, True, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0.0]) ,
+        (4, True, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0.0]) ,
+        (4, False, True, False, True, True) : (0.90085906, 0.54051542, [0, 0, 0, 0, 0.46230870485305786, 0.53769129514694214, 0]) ,
+        (4, False, True, False, True, False) : (1.2441286, 0.43544501, [0, 0, 0, 0, 0.35908344388008118, 0.64091658592224121, 0]) ,
+        (4, False, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0]) ,
+        (4, False, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0]) ,
+        (4, False, False, True, True, True) : (1.6560036, 1.1592025, [0, 0, 0, 0, 0.19270744919776917, 0.80729258060455322, 0]) ,
+        (4, False, False, True, True, False) : (1.6573817, 0.74582177, [0, 0, 0, 0, 0.13849352300167084, 0.86150646209716797, 0]) ,
+        (4, False, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0]) ,
+        (4, False, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0]) ,
+        (4, False, False, False, True, True) : (1.640496, 0.98429757, [0, 0, 0, 0, 0.17100141942501068, 0.82899856567382812, 0]) ,
+        (4, False, False, False, True, False) : (1.693392, 0.59268725, [0, 0, 0, 0, 0.11556066572666168, 0.88443934917449951, 0]) ,
+        (4, False, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0]) ,
+        (4, False, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0]) ,
+        (5, True, True, False, True, True) : (1.5440897, 0.92645377, [0, 0, 0, 0, 0, 0.47792428731918335, 0.52207571268081665]) ,
+        (5, True, True, False, True, False) : (1.6837471, 0.58931148, [0, 0, 0, 0, 0, 0.52392536401748657, 0.47607460618019104]) ,
+        (5, True, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 0.71698111295700073, 0.28301885724067688]) ,
+        (5, True, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 0.70232254266738892, 0.29767745733261108]) ,
+        (5, True, False, True, True, True) : (2.7676663, 1.9373665, [0, 0, 0, 0, 0, 0.32654938101768494, 0.67345058917999268]) ,
+        (5, True, False, True, True, False) : (2.0575211, 0.92588449, [0, 0, 0, 0, 0, 0.53625214099884033, 0.46374788880348206]) ,
+        (5, True, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 0.69184529781341553, 0.30815470218658447]) ,
+        (5, True, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 0.7762836217880249, 0.22371639311313629]) ,
+        (5, True, False, False, True, True) : (2.3502514, 1.4101509, [0, 0, 0, 0, 0, 0.41270622611045837, 0.58729374408721924]) ,
+        (5, True, False, False, True, False) : (1.9709414, 0.68982947, [0, 0, 0, 0, 0, 0.62002801895141602, 0.37997198104858398]) ,
+        (5, True, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 0.72999167442321777, 0.27000829577445984]) ,
+        (5, True, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 0.80499798059463501, 0.19500201940536499]) ,
+        (5, False, True, False, True, True) : (1.475865, 0.88551903, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, True, False, True, False) : (1.6334157, 0.57169551, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, True, True, True) : (2.5490196, 1.7843137, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, True, True, False) : (1.9435737, 0.87460816, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, False, True, True) : (2.1875, 1.3125, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, False, True, False) : (1.8803419, 0.65811968, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (5, False, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 1.0, 0]) ,
+        (6, True, True, False, True, True) : (2.7550187, 1.6530112, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, True, False, True, False) : (2.4767113, 0.86684889, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, True, False, False, True) : (1.8489302, 1.1093582, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, True, False, False, False) : (2.4813204, 0.86846215, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, True, True, True) : (1.8811882, 1.3168317, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, True, True, False) : (2.0423892, 0.91907513, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, True, False, True) : (2.1186955, 1.4830868, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, True, False, False) : (2.6321666, 1.1844751, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, False, True, True) : (1.9298246, 1.1578947, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, False, True, False) : (2.1415608, 0.74954629, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, False, False, True) : (2.2952538, 1.3771522, [0, 0, 0, 0, 0, 0, 1.0]) ,
+        (6, True, False, False, False, False) : (2.9230175, 1.0230561, [0, 0, 0, 0, 0, 0, 1.0]) ,
+    }
+
     def get_dps(self):
         super(AldrianasRogueDamageCalculator, self).get_dps()
         if self.spec == 'assassination':
@@ -1078,73 +1145,6 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
         self.set_constants()
 
-        #table of minicycle ability amounts
-        #indexed by (min_spend_cps, deeper_strat, quick_draw, swordmaster, broadside, jollyroger)
-        #values are (ss_per_min_cycle, ps_per_min_cycle, finisher_cp_list)
-        #TODO: 60 element table is probably a bit much, should probably be condensed
-        self.minicycle_table = {
-            (4, True, True, False, True, True) : (0.92778015, 0.5566681, [0, 0, 0, 0, 0.46230870485305786, 0.40208783745765686, 0.13560345768928528]) ,
-            (4, True, True, False, True, False) : (1.2831669, 0.44910839, [0, 0, 0, 0, 0.35908344388008118, 0.49529376626014709, 0.14562278985977173]) ,
-            (4, True, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0.0]) ,
-            (4, True, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0.0]) ,
-            (4, True, False, True, True, True) : (1.7995313, 1.2596719, [0, 0, 0, 0, 0.19270744919776917, 0.39063876867294312, 0.41665378212928772]) ,
-            (4, True, False, True, True, False) : (1.759297, 0.79168367, [0, 0, 0, 0, 0.13849352300167084, 0.56256377696990967, 0.29894271492958069]) ,
-            (4, True, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0.0]) ,
-            (4, True, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0.0]) ,
-            (4, True, False, False, True, True) : (1.7663901, 1.059834, [0, 0, 0, 0, 0.17100141942501068, 0.45841407775878906, 0.37058448791503906]) ,
-            (4, True, False, False, True, False) : (1.7791812, 0.62271339, [0, 0, 0, 0, 0.11556066572666168, 0.63698828220367432, 0.24745103716850281]) ,
-            (4, True, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0.0]) ,
-            (4, True, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0.0]) ,
-            (4, False, True, False, True, True) : (0.90085906, 0.54051542, [0, 0, 0, 0, 0.46230870485305786, 0.53769129514694214, 0]) ,
-            (4, False, True, False, True, False) : (1.2441286, 0.43544501, [0, 0, 0, 0, 0.35908344388008118, 0.64091658592224121, 0]) ,
-            (4, False, True, False, False, True) : (1.3207548, 0.79245281, [0, 0, 0, 0, 0.37735849618911743, 0.62264150381088257, 0]) ,
-            (4, False, True, False, False, False) : (1.7271835, 0.60451424, [0, 0, 0, 0, 0.57409226894378662, 0.42590776085853577, 0]) ,
-            (4, False, False, True, True, True) : (1.6560036, 1.1592025, [0, 0, 0, 0, 0.19270744919776917, 0.80729258060455322, 0]) ,
-            (4, False, False, True, True, False) : (1.6573817, 0.74582177, [0, 0, 0, 0, 0.13849352300167084, 0.86150646209716797, 0]) ,
-            (4, False, False, True, False, True) : (1.3918972, 0.97432804, [0, 0, 0, 0, 0.82430845499038696, 0.17569157481193542, 0]) ,
-            (4, False, False, True, False, False) : (1.7689608, 0.79603237, [0, 0, 0, 0, 0.7987181544303894, 0.20128187537193298, 0]) ,
-            (4, False, False, False, True, True) : (1.640496, 0.98429757, [0, 0, 0, 0, 0.17100141942501068, 0.82899856567382812, 0]) ,
-            (4, False, False, False, True, False) : (1.693392, 0.59268725, [0, 0, 0, 0, 0.11556066572666168, 0.88443934917449951, 0]) ,
-            (4, False, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0]) ,
-            (4, False, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0]) ,
-            (5, True, True, False, True, True) : (1.5440897, 0.92645377, [0, 0, 0, 0, 0, 0.47792428731918335, 0.52207571268081665]) ,
-            (5, True, True, False, True, False) : (1.6837471, 0.58931148, [0, 0, 0, 0, 0, 0.52392536401748657, 0.47607460618019104]) ,
-            (5, True, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 0.71698111295700073, 0.28301885724067688]) ,
-            (5, True, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 0.70232254266738892, 0.29767745733261108]) ,
-            (5, True, False, True, True, True) : (2.7676663, 1.9373665, [0, 0, 0, 0, 0, 0.32654938101768494, 0.67345058917999268]) ,
-            (5, True, False, True, True, False) : (2.0575211, 0.92588449, [0, 0, 0, 0, 0, 0.53625214099884033, 0.46374788880348206]) ,
-            (5, True, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 0.69184529781341553, 0.30815470218658447]) ,
-            (5, True, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 0.7762836217880249, 0.22371639311313629]) ,
-            (5, True, False, False, True, True) : (2.3502514, 1.4101509, [0, 0, 0, 0, 0, 0.41270622611045837, 0.58729374408721924]) ,
-            (5, True, False, False, True, False) : (1.9709414, 0.68982947, [0, 0, 0, 0, 0, 0.62002801895141602, 0.37997198104858398]) ,
-            (5, True, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 0.72999167442321777, 0.27000829577445984]) ,
-            (5, True, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 0.80499798059463501, 0.19500201940536499]) ,
-            (5, False, True, False, True, True) : (1.475865, 0.88551903, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, True, False) : (1.6334157, 0.57169551, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, True, False, False, False) : (2.0673864, 0.72358519, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, True, True) : (2.5490196, 1.7843137, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, True, False) : (1.9435737, 0.87460816, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, False, True) : (1.7693849, 1.2385694, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, True, False, False) : (2.1994596, 0.98975676, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, True, True) : (2.1875, 1.3125, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, True, False) : (1.8803419, 0.65811968, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (5, False, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 1.0, 0]) ,
-            (6, True, True, False, True, True) : (2.7550187, 1.6530112, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, True, False) : (2.4767113, 0.86684889, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, False, True) : (1.8489302, 1.1093582, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, True, False, False, False) : (2.4813204, 0.86846215, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, True, True) : (1.8811882, 1.3168317, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, True, False) : (2.0423892, 0.91907513, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, False, True) : (2.1186955, 1.4830868, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, True, False, False) : (2.6321666, 1.1844751, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, True, True) : (1.9298246, 1.1578947, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, True, False) : (2.1415608, 0.74954629, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, False, True) : (2.2952538, 1.3771522, [0, 0, 0, 0, 0, 0, 1.0]) ,
-            (6, True, False, False, False, False) : (2.9230175, 1.0230561, [0, 0, 0, 0, 0, 0, 1.0]) ,
-        }
-
         stats, aps, crits, procs, additional_info = self.determine_stats(self.outlaw_attack_counts)
         damage_breakdown, additional_info  = self.compute_damage_from_aps(stats, aps, crits, procs, additional_info)
 
@@ -1166,6 +1166,32 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             damage_breakdown[ability] *= infallible_trinket_mod
 
         return damage_breakdown
+
+    def build_buff_retention_list(self):
+        buffs = {
+            'keep': {'gm': 0.0, 'jr': 0.0, 'bt': 0.0, 'b': 0.0, 'tb': 0.0, 's': 0.0, 'total': 0.0},
+            'reroll': {'gm': 0.0, 'jr': 0.0, 'bt': 0.0, 'b': 0.0, 'tb': 0.0, 's': 0.0, 'total': 0.0},
+            'uptime': {'gm': 0.0, 'jr': 0.0, 'bt': 0.0, 'b': 0.0, 'tb': 0.0, 's': 0.0}
+        }
+
+        for phase in self.settings.cycle.keep_list:
+            chance = self.rtb_probabilities[len(phase)] / self.rtb_buff_count[len(phase)]
+            buffs['keep'][phase] = chance
+            buffs['keep']['total'] += chance
+            for entry in phase:
+                buffs['keep'][entry] += chance
+
+        for k, v in buffs['reroll'].iteritems():
+            buffs['reroll'][k] = buffs['keep'][k] / buffs['keep']['total']
+
+        for phase in self.settings.cycle.reroll_list:
+            chance = self.rtb_probabilities[len(phase)] / self.rtb_buff_count[len(phase)]
+            buffs['reroll'][phase] = chance
+            buffs['reroll']['total'] += chance
+            for entry in phase:
+                buffs['reroll'][entry] += chance
+        return buffs
+
 
     def outlaw_attack_counts(self, current_stats, crit_rates=None):
         attacks_per_second = {}
@@ -1311,39 +1337,32 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             shark_uptime = (keep_uptime * keep_shark_uptime) + (1 - keep_uptime) * reroll_shark_uptime
 
         # Determine AR uptime and merge the two distributions
-        attacks_per_second = self.merge_attacks_per_second({'normal': (self.ar_cd - self.ar_duration, aps_normal),
-            'ar': (self.ar_duration, aps_ar)}, total_time=self.ar_cd)
+        attacks_per_second = self.merge_attacks_per_second({
+            'normal': (self.ar_cd - self.ar_duration, aps_normal),
+            'ar': (self.ar_duration, aps_ar)
+        })
         ar_uptime = self.ar_duration / self.ar_cd
-        tb_seconds_per_second = 0
+        cd_reduction_per_second = 0 if self.talents.slice_and_dice else 2 * attacks_per_second['cp_spend_per_sec'] * tb_uptime
 
         # If RtB loop on AR cooldown
+        # AR cooldown is base - (cp spend per second * 2 * tb_uptime - seconds spending CP = 0)
         if not self.talents.slice_and_dice:
-            old_ar_cd = self.ar_cd
-            loop_counter = 0
-            while (loop_counter < 20):
-                cp_spend_per_second = 0
-                for ability in attacks_per_second:
-                    if ability in self.finisher_damage_sources:
-                        for cp in xrange(7):
-                            cp_spend_per_second += attacks_per_second[ability][cp] * cp
-                tb_seconds_per_second = 2 * cp_spend_per_second * tb_uptime
-                new_ar_cd = self.ar_cd/(1 + tb_seconds_per_second)
-                attacks_per_second = self.merge_attacks_per_second({'normal': (new_ar_cd - self.ar_duration, aps_normal),
-                    'ar': (self.ar_duration, aps_ar)}, total_time=new_ar_cd)
-                if old_ar_cd - new_ar_cd < 0.1:
-                    break
-                else:
-                    old_ar_cd = new_ar_cd
+            new_ar_cd = self.ar_cd / (1 + cd_reduction_per_second)
+            attacks_per_second = self.merge_attacks_per_second({
+                'normal': (new_ar_cd - self.ar_duration, aps_normal),
+                'ar': (self.ar_duration, aps_ar)
+            })
 
             ar_uptime = self.ar_duration / new_ar_cd
 
         # Add in Cannonball and Killing Spree
         if self.talents.killing_spree:
-            ksp_cd = self.get_spell_cd('killing_spree') / (1. + tb_seconds_per_second)
+            ksp_cd = self.get_spell_cd('killing_spree') / (1. + cd_reduction_per_second)
             #ksp is 7 hits per hand
             attacks_per_second['killing_spree'] = 7./ksp_cd
+
         if self.talents.cannonball_barrage:
-            cannonball_barrage_cd = self.get_spell_cd('cannonball_barrage') / (1. + tb_seconds_per_second)
+            cannonball_barrage_cd = self.get_spell_cd('cannonball_barrage') / (1. + cd_reduction_per_second)
             attacks_per_second['cannonball_barrage'] = 1./cannonball_barrage_cd
 
 
@@ -1381,9 +1400,18 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
         return attacks_per_second, crit_rates, additional_info
 
+    def fetch_minicycle(self, broadsides=False, jolly=False):
+        minicycle_key = (self.settings.finisher_threshold,
+                         bool(self.talents.deeper_strategem),
+                         bool(self.talents.quick_draw),
+                         bool(self.talents.swordmaster),
+                         broadsides, jolly)
+        return self.MINICYCLE_TABLE[minicycle_key]
+
     # Probably don't actually need Shark or True Bearing here but simpler
     def outlaw_attack_counts_mincycle(self, current_stats, snd=False, ar=False, jolly=False, melee=False,
-                                      buried=False, broadsides=False, duration=30, shark=False, true_bearing=True):
+                                      buried=False, broadsides=False, duration=30, shark=False, true_bearing=True,
+                                      skip_maint_buff=False):
 
         maintainence_buff = 'slice_and_dice' if snd else 'roll_the_bones'
         attack_speed_multiplier = self.get_attack_speed_multiplier(current_stats, snd, melee, ar)
@@ -1393,10 +1421,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         if ar:
             gcd_size -= .2
 
-        #fetch minicycle value
-        minicycle_key = (self.settings.finisher_threshold, bool(self.talents.deeper_strategem), bool(self.talents.quick_draw),
-                         bool(self.talents.swordmaster), broadsides, jolly)
-        ss_count, ps_count, finisher_list = self.minicycle_table[minicycle_key]
+        ss_count, ps_count, finisher_list = self.fetch_minicycle(broadsides, jolly)
 
         # set up our initial budgets
         energy_budget = duration * energy_regen
@@ -1413,20 +1438,24 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         mg_cp_energy = self.get_mg_cp_regen_from_haste(attack_speed_multiplier) * (1 - self.white_swing_downtime)
         energy_budget += mg_cp_energy
 
-        attacks_per_second = {}
+        attacks_per_second = {
+            'saber_slash': 0,
+            'pistol_shot': 0,
+            maintainence_buff: [0] * 7
+        }
 
-        #consider the cost of building to max cps and using rtb
-        energy_budget -= ss_count * self.saber_slash_energy_cost
-        #don't account for ps energy becuase ps is free
-        if snd:
-            energy_budget -= self.slice_and_dice_cost
-        else:
-            energy_budget -= self.roll_the_bones_cost
-        gcd_budget -= (ss_count + ps_count + 1)
-        attacks_per_second['saber_slash'] = float(ss_count + ps_count)/duration
-        attacks_per_second['pistol_shot'] = float(ps_count)/duration
-
-        attacks_per_second[maintainence_buff] = [v / duration for v in finisher_list]
+        # Consider the cost of building to max cps and using rtb
+        if not skip_maint_buff:
+            energy_budget -= ss_count * self.saber_slash_energy_cost
+            #don't account for ps energy becuase ps is free
+            if snd:
+                energy_budget -= self.slice_and_dice_cost
+            else:
+                energy_budget -= self.roll_the_bones_cost
+            gcd_budget -= (ss_count + ps_count + 1)
+            attacks_per_second['saber_slash'] = float(ss_count + ps_count)/duration
+            attacks_per_second['pistol_shot'] = float(ps_count)/duration
+            attacks_per_second[maintainence_buff] = [v / duration for v in finisher_list]
 
         if (shark and self.settings.cycle.between_the_eyes_policy == 'shark') or self.settings.cycle.between_the_eyes_policy == 'always':
             bte_count = duration / (20 + self.settings.response_time - (10 * true_bearing))
@@ -1494,15 +1523,16 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 energy_budget += new_cp_mg - old_cp_mg
                 alacrity_stacks = new_alacrity_stacks
 
+        maintenance_cp_spend_per_sec = reduce(lambda t, (cp, aps): t + cp * aps, enumerate(attacks_per_second[maintainence_buff]), 0)
+        run_through_cp_spend_per_sec = reduce(lambda t, (cp, aps): t + cp * aps, enumerate(attacks_per_second['run_through']), 0)
+        attacks_per_second['cp_spend_per_sec'] = maintenance_cp_spend_per_sec + run_through_cp_spend_per_sec
         #skip white swings and mg procs because we can do those later
         return attacks_per_second
 
     def outlaw_attack_counts_reroll(self, current_stats, ar=False,
-        jolly=False, melee=False, buried=False, broadsides=False, alacrity_stacks=0):
-        #fetch minicycle value
-        minicycle_key = (self.settings.finisher_threshold, bool(self.talents.deeper_strategem), bool(self.talents.quick_draw),
-                         bool(self.talents.swordmaster), broadsides, jolly)
-        ss_count, ps_count, finisher_list = self.minicycle_table[minicycle_key]
+            jolly=False, melee=False, buried=False, broadsides=False, alacrity_stacks=0):
+
+        ss_count, ps_count, finisher_list = self.fetch_minicycle(broadsides, jolly)
         reroll_energy_cost = (ss_count * self.saber_slash_energy_cost) + self.roll_the_bones_cost
 
         energy_regen = self.get_energy_regen(current_stats, buried, ar, alacrity_stacks)
@@ -1517,10 +1547,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         attacks_per_second['roll_the_bones'] = [v / reroll_time for v in finisher_list]
         return attacks_per_second, reroll_time
 
-
     #dict of (probability, aps) pairs
-    def merge_attacks_per_second(self, aps_dicts, total_time=1.0):
-        total = 0.0
+    def merge_attacks_per_second(self, aps_dicts):
+        total_time = reduce(lambda t, (k, (x, y)): t + x, aps_dicts.iteritems(), 0)
         attacks_per_second = {}
         for key in aps_dicts:
             proportion, aps = aps_dicts[key]

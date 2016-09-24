@@ -4,6 +4,7 @@ import __builtin__
 import math
 from operator import add
 from copy import copy
+from warnings import warn
 
 __builtin__._ = gettext.gettext
 
@@ -57,6 +58,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         (4, False, False, False, True, False) : (1.693392, 0.59268725, [0, 0, 0, 0, 0.11556066572666168, 0.88443934917449951, 0]) ,
         (4, False, False, False, False, True) : (1.5257645, 0.91545868, [0, 0, 0, 0, 0.80414772033691406, 0.19585229456424713, 0]) ,
         (4, False, False, False, False, False) : (1.9706308, 0.68972075, [0, 0, 0, 0, 0.81240963935852051, 0.1875903457403183, 0]) ,
+
         (5, True, True, False, True, True) : (1.5440897, 0.92645377, [0, 0, 0, 0, 0, 0.47792428731918335, 0.52207571268081665]) ,
         (5, True, True, False, True, False) : (1.6837471, 0.58931148, [0, 0, 0, 0, 0, 0.52392536401748657, 0.47607460618019104]) ,
         (5, True, True, False, False, True) : (1.509434, 0.90566039, [0, 0, 0, 0, 0, 0.71698111295700073, 0.28301885724067688]) ,
@@ -81,6 +83,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         (5, False, False, False, True, False) : (1.8803419, 0.65811968, [0, 0, 0, 0, 0, 1.0, 0]) ,
         (5, False, False, False, False, True) : (1.9163667, 1.14982, [0, 0, 0, 0, 0, 1.0, 0]) ,
         (5, False, False, False, False, False) : (2.4447069, 0.85564739, [0, 0, 0, 0, 0, 1.0, 0]) ,
+
         (6, True, True, False, True, True) : (2.7550187, 1.6530112, [0, 0, 0, 0, 0, 0, 1.0]) ,
         (6, True, True, False, True, False) : (2.4767113, 0.86684889, [0, 0, 0, 0, 0, 0, 1.0]) ,
         (6, True, True, False, False, True) : (1.8489302, 1.1093582, [0, 0, 0, 0, 0, 0, 1.0]) ,
@@ -94,6 +97,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         (6, True, False, False, False, True) : (2.2952538, 1.3771522, [0, 0, 0, 0, 0, 0, 1.0]) ,
         (6, True, False, False, False, False) : (2.9230175, 1.0230561, [0, 0, 0, 0, 0, 0, 1.0]) ,
     }
+    PHASE_LABELS = {'gm': 'melee', 'jr': 'jolly', 'bt': 'buried', 'b': 'broadsides', 'tb': 'true_bearing', 's': 'shark'}
 
     def get_dps(self):
         super(AldrianasRogueDamageCalculator, self).get_dps()
@@ -1192,8 +1196,8 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             for entry in phase:
                 buffs['keep'][entry] += chance
 
-        for k, v in buffs['reroll'].iteritems():
-            buffs['reroll'][k] = buffs['keep'][k] / buffs['keep']['total']
+        for k, v in buffs['uptime'].iteritems():
+            buffs['uptime'][k] = buffs['keep'][k] / buffs['keep']['total']
 
         for phase in self.settings.cycle.reroll_list:
             chance = self.rtb_probabilities[len(phase)] / self.rtb_buff_count[len(phase)]
@@ -1203,6 +1207,94 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
                 buffs['reroll'][entry] += chance
         return buffs
 
+    def outlaw_aps_and_buff_uptimes(self, current_stats):
+        # Compute dps phases each non-rerolling RtB buff combo AR and not
+        retain = self.build_buff_retention_list()
+        maintainence_buff_duration = 6 * (1 + self.settings.finisher_threshold)
+
+        if self.talents.slice_and_dice:
+            aps_normal = self.outlaw_attack_counts_mincycle(current_stats, snd=True, duration=maintainence_buff_duration)
+            aps_ar = self.outlaw_attack_counts_mincycle(current_stats, snd=True, ar=True, duration=self.ar_duration)
+            return (aps_normal, aps_ar, 0.0, 0.0, 0.0)
+        else:
+            phases = {}
+            ar_phases = {}
+
+            # Compute kept RTB rolls
+            for phase in self.settings.cycle.keep_list:
+                kwargs = {self.PHASE_LABELS[k]: True for k in phase}
+                chance = retain['keep'][phase]
+                aps = self.outlaw_attack_counts_mincycle(current_stats, duration=maintainence_buff_duration, **kwargs)
+                aps_ar = self.outlaw_attack_counts_mincycle(current_stats, ar=True, duration=self.ar_duration, **kwargs)
+                phases[phase] = (chance, aps)
+                ar_phases[phase] = (chance, aps_ar)
+            keep_gm_uptime = retain['uptime']['gm']
+            keep_tb_uptime = retain['uptime']['tb']
+            keep_shark_uptime = retain['uptime']['s']
+            # Merge AR and non-AR into single phases
+            aps_keep = self.merge_attacks_per_second(phases)
+            aps_keep_ar = self.merge_attacks_per_second(ar_phases)
+            # Technically there is a convergence relationship here but ignoring it
+            if self.talents.alacrity:
+                alacrity_stacks = self.get_average_alacrity(aps_keep)
+                alacrity_stacks_ar = self.get_average_alacrity(aps_keep_ar)
+            else:
+                alacrity_stacks = 0
+                alacrity_stacks_ar = 0
+
+
+            # Now compute the average time for each reroll
+            phases = {}
+            ar_phases = {}
+            net_reroll_time = net_reroll_time_ar = reroll_tb_time = reroll_shark_time = reroll_gm_time = reroll_tb_uptime = reroll_shark_uptime = reroll_gm_uptime = 0.0
+
+            for phase in self.settings.cycle.reroll_list:
+                kwargs = {self.PHASE_LABELS[k]: True for k in phase}
+
+                chance = self.rtb_probabilities[len(phase)]/self.rtb_buff_count[len(phase)]
+                aps, reroll_time = self.outlaw_attack_counts_reroll(current_stats, alacrity_stacks=alacrity_stacks, **kwargs)
+                aps_ar, reroll_time_ar = self.outlaw_attack_counts_reroll(current_stats, ar=True, alacrity_stacks=alacrity_stacks_ar, **kwargs)
+                phases[phase] = (chance * reroll_time, aps)
+                ar_phases[phase] = (chance * reroll_time_ar, aps_ar)
+
+                net_reroll_time += chance * reroll_time
+                net_reroll_time_ar += chance * reroll_time_ar
+                if 'tb' in kwargs:
+                    reroll_tb_time += chance * reroll_time
+                if 's' in kwargs:
+                    reroll_shark_time += chance * reroll_time
+                if 'gm' in kwargs:
+                    reroll_gm_time += chance * reroll_time
+
+            # Check for reroll time, to protect from divide by zero
+            if net_reroll_time:
+                reroll_tb_uptime = reroll_tb_time/net_reroll_time
+                reroll_shark_uptime = reroll_shark_time/net_reroll_time
+                reroll_gm_uptime = reroll_gm_time/net_reroll_time
+
+            aps_reroll = self.merge_attacks_per_second(phases)
+            aps_reroll_ar = self.merge_attacks_per_second(ar_phases)
+            # Now combine the reroll and keep dicts
+            rtb_keep_duration = 6 * (1 + self.settings.finisher_threshold)
+            # Will pandemic into RtB based on keep_chance
+            rtb_keep_duration *= 1 + (0.3 * retain['keep']['total'])
+            reroll_duration = net_reroll_time * len(self.settings.cycle.reroll_list)
+
+            ar_reroll_duration = net_reroll_time_ar
+
+            aps_normal = self.merge_attacks_per_second({
+                'keep': (rtb_keep_duration, aps_keep),
+                'reroll': (reroll_duration, aps_reroll)})
+
+            aps_ar = self.merge_attacks_per_second(
+                {'keep': (rtb_keep_duration, aps_keep_ar),
+                'reroll': (ar_reroll_duration, aps_reroll_ar)})
+
+            keep_uptime = rtb_keep_duration/(rtb_keep_duration + reroll_duration)
+            tb_uptime = (keep_uptime * keep_tb_uptime) + (1 - keep_uptime) * reroll_tb_uptime
+            gm_uptime = (keep_uptime * keep_gm_uptime) + (1 - keep_uptime) * reroll_gm_uptime
+            shark_uptime = (keep_uptime * keep_shark_uptime) + (1 - keep_uptime) * reroll_shark_uptime
+            return (aps_normal, aps_ar, tb_uptime, gm_uptime, shark_uptime)
 
     def outlaw_attack_counts(self, current_stats, crit_rates=None):
         attacks_per_second = {}
@@ -1232,120 +1324,8 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
             self.ghostly_strike_cost = self.get_spell_cost('ghostly_strike') - cost_reducer
 
         self.white_swing_downtime = self.settings.response_time / self.get_spell_cd('vanish')
-        # Compute dps phases each non-rerolling RtB buff combo AR and not
-        phases = {}
-        ar_phases = {}
 
-        keep_chance = 0.0
-        keep_tb_chance = 0.0
-        keep_shark_chance = 0.0
-        keep_gm_chance = 0.0
-        maintainence_buff_duration = 6 * (1 + self.settings.finisher_threshold)
-
-        if self.talents.slice_and_dice:
-            aps_normal = self.outlaw_attack_counts_mincycle(current_stats, snd=True, duration=maintainence_buff_duration)
-            aps_ar = self.outlaw_attack_counts_mincycle(current_stats, snd=True, ar=True, duration=self.ar_duration)
-        else:
-            for phase in self.settings.cycle.keep_list:
-                jolly = 'jr' in phase
-                melee = 'gm' in phase
-                buried = 'bt' in phase
-                broadsides = 'b' in phase
-                true_bearing = 'tb' in phase
-                shark = 's' in phase
-
-                chance = self.rtb_probabilities[len(phase)]/self.rtb_buff_count[len(phase)]
-                aps = self.outlaw_attack_counts_mincycle(current_stats, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, shark=shark, true_bearing=true_bearing,
-                        duration=maintainence_buff_duration)
-                aps_ar = self.outlaw_attack_counts_mincycle(current_stats,  ar=True, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, shark=shark, true_bearing=true_bearing,
-                        duration=self.ar_duration)
-                phases[phase] = (chance, aps)
-                ar_phases[phase] = (chance, aps_ar)
-                keep_chance += chance
-                if melee:
-                    keep_gm_chance += chance
-                if true_bearing:
-                    keep_tb_chance += chance
-                if shark:
-                    keep_shark_chance += chance
-            keep_gm_uptime = keep_gm_chance/keep_chance
-            keep_tb_uptime = keep_tb_chance/keep_chance
-            keep_shark_uptime = keep_shark_chance/keep_chance
-            # Merge AR and non-AR into single phases
-            aps_keep = self.merge_attacks_per_second(phases, total_time=keep_chance)
-            aps_keep_ar = self.merge_attacks_per_second(ar_phases, total_time=keep_chance)
-            # Technically there is a convergence relationship here but ignoring it
-            if self.talents.alacrity:
-                alacrity_stacks = self.get_average_alacrity(aps_keep)
-                alacrity_stacks_ar = self.get_average_alacrity(aps_keep_ar)
-            else:
-                alacrity_stacks = 0
-                alacrity_stacks_ar = 0
-            # Now compute the average time for each reroll
-            phases = {}
-            ar_phases = {}
-            net_reroll_time = 0.0
-            net_reroll_time_ar = 0.0
-            reroll_tb_time = 0.0
-            reroll_shark_time = 0.0
-            reroll_gm_time = 0.0
-            for phase in self.settings.cycle.reroll_list:
-                jolly = 'jr' in phase
-                melee = 'gm' in phase
-                buried = 'bt' in phase
-                broadsides = 'b' in phase
-                true_bearing = 'tb' in phase
-                shark = 's' in phase
-
-                chance = self.rtb_probabilities[len(phase)]/self.rtb_buff_count[len(phase)]
-                aps, reroll_time = self.outlaw_attack_counts_reroll(current_stats, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, alacrity_stacks=alacrity_stacks)
-                aps_ar, reroll_time_ar = self.outlaw_attack_counts_reroll(current_stats,  ar=True, jolly=jolly,
-                        melee=melee, buried=buried, broadsides=broadsides, alacrity_stacks=alacrity_stacks_ar)
-                phases[phase] = (chance * reroll_time, aps)
-                ar_phases[phase] = (chance * reroll_time_ar, aps_ar)
-                net_reroll_time += chance * reroll_time
-                net_reroll_time_ar += chance * reroll_time_ar
-                if true_bearing:
-                    reroll_tb_time += chance * reroll_time
-                if shark:
-                    reroll_shark_time += chance * reroll_time
-                if melee:
-                    reroll_gm_time += chance * reroll_time
-
-            # Check for reroll time, to protect from divide by zero
-            if net_reroll_time:
-                reroll_tb_uptime = reroll_tb_time/net_reroll_time
-                reroll_shark_uptime = reroll_shark_time/net_reroll_time
-                reroll_gm_uptime = reroll_gm_time/net_reroll_time
-            else:
-                reroll_tb_uptime = 0
-                reroll_shark_uptime = 0
-                reroll_gm_uptime = 0
-
-            aps_reroll = self.merge_attacks_per_second(phases, total_time=net_reroll_time)
-            aps_reroll_ar = self.merge_attacks_per_second(phases, total_time=net_reroll_time_ar)
-            # Now combine the reroll and keep dicts
-            rtb_keep_duration = 6 * (1+ self.settings.finisher_threshold)
-            # Will pandemic into RtB based on keep_chance
-            rtb_keep_duration *= 1 + (0.3 * keep_chance)
-            reroll_duration = net_reroll_time * len(self.settings.cycle.reroll_list)
-
-            ar_reroll_duration = net_reroll_time_ar
-
-            phases = {'keep': (rtb_keep_duration, aps_keep),
-                      'reroll': (reroll_duration, aps_reroll)}
-            aps_normal = self.merge_attacks_per_second(phases, rtb_keep_duration + reroll_duration)
-            phases = {'keep': (rtb_keep_duration, aps_keep_ar),
-                      'reroll': (ar_reroll_duration, aps_reroll_ar)}
-            aps_ar = self.merge_attacks_per_second(phases, rtb_keep_duration + ar_reroll_duration)
-
-            keep_uptime = rtb_keep_duration/(rtb_keep_duration + reroll_duration)
-            tb_uptime = (keep_uptime * keep_tb_uptime) + (1 - keep_uptime) * reroll_tb_uptime
-            gm_uptime = (keep_uptime * keep_gm_uptime) + (1 - keep_uptime) * reroll_gm_uptime
-            shark_uptime = (keep_uptime * keep_shark_uptime) + (1 - keep_uptime) * reroll_shark_uptime
+        aps_normal, aps_ar, tb_uptime, gm_uptime, shark_uptime = self.outlaw_aps_and_buff_uptimes(current_stats)
 
         # Determine AR uptime and merge the two distributions
         attacks_per_second = self.merge_attacks_per_second({
@@ -1379,9 +1359,9 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
 
         # Figure swing timer and add Main Gauche
         attack_speed_multiplier = self.get_attack_speed_multiplier(current_stats, snd=self.talents.slice_and_dice)
-        attack_speed_multiplier *= (1 + (0.2 * ar_uptime))
+        attack_speed_multiplier *= 1 + (0.2 * ar_uptime)
         if not self.talents.slice_and_dice:
-            attack_speed_multiplier *= (1 + (0.5 * gm_uptime))
+            attack_speed_multiplier *= 1 + (0.5 * gm_uptime)
         swing_timer = self.stats.mh.speed / attack_speed_multiplier
         attacks_per_second['mh_autoattacks'] = 1./swing_timer
         attacks_per_second['oh_autoattacks'] = 1./swing_timer
@@ -1541,7 +1521,7 @@ class AldrianasRogueDamageCalculator(RogueDamageCalculator):
         return attacks_per_second
 
     def outlaw_attack_counts_reroll(self, current_stats, ar=False,
-            jolly=False, melee=False, buried=False, broadsides=False, alacrity_stacks=0):
+            jolly=False, melee=False, buried=False, broadsides=False, shark=False, true_bearing=False, alacrity_stacks=0):
 
         ss_count, ps_count, finisher_list = self.fetch_minicycle(broadsides, jolly)
         reroll_energy_cost = (ss_count * self.saber_slash_energy_cost) + self.roll_the_bones_cost
